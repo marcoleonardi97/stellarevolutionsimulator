@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stellar Evolution Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #fafaf7;
+    --surface: #ffffff;
+    --border: #d8d5cc;
+    --border-light: #ebe8e0;
+    --text: #1a1916;
+    --text-muted: #6b6860;
+    --text-faint: #a8a59e;
+    --accent: #c0392b;
+    --accent2: #2471a3;
+    --accent3: #1e8449;
+    --star-color: #f39c12;
+    --track-color: #2471a3;
+    --font-serif: 'EB Garamond', Georgia, serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-serif);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: baseline;
+    gap: 24px;
+    background: var(--surface);
+  }
+
+  header h1 {
+    font-size: 1.35rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+
+  header p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 1fr 300px;
+    grid-template-rows: auto 1fr;
+    gap: 0;
+    height: calc(100vh - 61px);
+  }
+
+  /* Controls bar */
+  .controls {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 36px;
+    flex-wrap: wrap;
+  }
+
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .control-group label {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+  }
+
+  .control-group input[type=range] {
+    width: 120px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .control-group .val {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--text);
+    min-width: 48px;
+  }
+
+  .btn-group { display: flex; gap: 8px; margin-left: auto; }
+
+  button {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+  }
+
+  button:hover { background: var(--bg); border-color: var(--text-muted); }
+  button.primary { background: var(--text); color: var(--surface); border-color: var(--text); }
+  button.primary:hover { background: #333; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Diagram panels */
+  .panel {
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-title {
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    padding: 10px 16px 6px;
+    border-bottom: 1px solid var(--border-light);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  canvas {
+    flex: 1;
+    display: block;
+    width: 100%;
+  }
+
+  /* Side panel */
+  .side-panel {
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .side-title {
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    padding: 10px 16px 6px;
+    border-bottom: 1px solid var(--border-light);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .stage-indicator {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .stage-name {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .stage-age {
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+  }
+
+  .stage-progress {
+    margin-top: 10px;
+    height: 3px;
+    background: var(--border-light);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .stage-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .stage-desc {
+    padding: 14px 16px;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: var(--text);
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .stage-desc p { margin-bottom: 10px; }
+  .stage-desc p:last-child { margin-bottom: 0; }
+
+  .physics-box {
+    margin: 0 16px 14px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border-light);
+    border-radius: 2px;
+  }
+
+  .physics-box .label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+
+  .physics-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+
+  .physics-row:last-child { margin-bottom: 0; }
+
+  .physics-key {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  .physics-val {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .timeline {
+    border-top: 1px solid var(--border-light);
+    padding: 10px 16px;
+  }
+
+  .timeline-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+  }
+
+  .timeline-stages {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .tl-stage {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 2px;
+    transition: background 0.1s;
+  }
+
+  .tl-stage:hover { background: var(--bg); }
+  .tl-stage.active .tl-dot { background: var(--accent); }
+  .tl-stage.done .tl-dot { background: var(--text-muted); }
+
+  .tl-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .tl-name {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+
+  .tl-stage.active .tl-name { color: var(--text); font-weight: 500; }
+  .tl-stage.done .tl-name { color: var(--text-muted); }
+
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; height: auto; }
+    .panel { height: 300px; }
+    .side-panel { height: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Stellar Evolution Simulator</h1>
+  <p>Interactive lifecycle explorer — simplified model for educational purposes</p>
+</header>
+
+<div class="main">
+  <!-- Controls -->
+  <div class="controls">
+    <div class="control-group">
+      <label>MASS (M☉)</label>
+      <input type="range" id="massSlider" min="0.8" max="20" step="0.1" value="2">
+      <span class="val" id="massVal">2.0</span>
+    </div>
+    <div class="control-group">
+      <label>METALLICITY (Z)</label>
+      <input type="range" id="metSlider" min="0.001" max="0.04" step="0.001" value="0.02">
+      <span class="val" id="metVal">0.020</span>
+    </div>
+    <div class="control-group">
+      <label>SPEED</label>
+      <input type="range" id="speedSlider" min="1" max="10" step="1" value="4">
+      <span class="val" id="speedVal">4×</span>
+    </div>
+    <div class="btn-group">
+      <button id="btnPlay" class="primary">▶ Play</button>
+      <button id="btnPause">⏸ Pause</button>
+      <button id="btnReset">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- HR Diagram -->
+  <div class="panel">
+    <div class="panel-title">Hertzsprung–Russell Diagram</div>
+    <canvas id="hrCanvas"></canvas>
+  </div>
+
+  <!-- logTc logRho Diagram -->
+  <div class="panel">
+    <div class="panel-title">Core Evolution — log T_c vs log ρ_c</div>
+    <canvas id="coreCanvas"></canvas>
+  </div>
+
+  <!-- Side panel -->
+  <div class="side-panel">
+    <div class="side-title">Current Stage</div>
+    <div class="stage-indicator">
+      <div class="stage-name" id="stageName">Pre-Main Sequence</div>
+      <div class="stage-age" id="stageAge">t = —</div>
+      <div class="stage-progress"><div class="stage-progress-bar" id="stageBar" style="width:0%"></div></div>
+    </div>
+    <div class="stage-desc" id="stageDesc">
+      <p>Press <strong>Play</strong> to begin the simulation.</p>
+      <p>Adjust the stellar mass and metallicity sliders to explore how different stars evolve differently.</p>
+    </div>
+    <div class="physics-box">
+      <div class="label">Core Parameters</div>
+      <div class="physics-row"><span class="physics-key">log T_c (K)</span><span class="physics-val" id="pTc">—</span></div>
+      <div class="physics-row"><span class="physics-key">log ρ_c (g/cm³)</span><span class="physics-val" id="pRho">—</span></div>
+      <div class="physics-row"><span class="physics-key">log L/L☉</span><span class="physics-val" id="pL">—</span></div>
+      <div class="physics-row"><span class="physics-key">log T_eff (K)</span><span class="physics-val" id="pTeff">—</span></div>
+    </div>
+    <div class="timeline">
+      <div class="timeline-label">Lifecycle</div>
+      <div class="timeline-stages" id="timelineStages"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STELLAR MODEL ────────────────────────────────────────────────────────────
+// Simplified but physically motivated parametric tracks
+// All positions are [logTeff, logL] for HR and [logTc, logRho] for core
+
+function buildStages(mass, Z) {
+  const m = mass;
+  const logM = Math.log10(m);
+
+  // Mass-dependent derived quantities (approximate scaling relations)
+  const msLifeGyr = 10 * Math.pow(m, -2.5);           // MS lifetime in Gyr
+  const logL_ZAMS = 4.0 * logM + 0.0;                  // ZAMS luminosity
+  const logTeff_ZAMS = 3.76 + 0.57 * logM;             // ZAMS Teff
+  const logTc_MS = 7.2 + 0.15 * logM;                  // MS core T
+  const logRho_MS = 2.1 + 0.8 * logM;                  // MS core rho
+  const Z_solar = 0.02;
+  const dZ = Math.log10(Z / Z_solar);
+
+  // Metallicity effects: lower Z → hotter, slightly more luminous
+  const Zteff = -0.15 * dZ;
+  const ZlogL = 0.05 * dZ;
+
+  // WD/remnant type
+  const isWD = m < 8;
+  const isNS = m >= 8 && m < 20;
+
+  // Age labels
+  function ageStr(gyr) {
+    if (gyr < 0.001) return `${(gyr*1e6).toFixed(0)} kyr`;
+    if (gyr < 1) return `${(gyr*1e3).toFixed(0)} Myr`;
+    return `${gyr.toFixed(2)} Gyr`;
+  }
+
+  const stages = [];
+
+  // 1. Pre-Main Sequence (Hayashi track)
+  const pmsDur = m < 2 ? 0.05 : 0.01; // Gyr
+  stages.push({
+    name: "Pre-Main Sequence",
+    duration: pmsDur,
+    ageLabel: () => `t ~ ${ageStr(pmsDur)}`,
+    desc: [
+      "The star is a newly formed protostar, contracting from a diffuse molecular cloud under its own gravity.",
+      "Luminosity is powered entirely by gravitational contraction (Kelvin–Helmholtz process) — no nuclear burning yet.",
+      m >= 2
+        ? "The star descends the Hayashi track nearly vertically at roughly constant T_eff ≈ 4,000 K. Its interior is almost fully convective."
+        : "Lower-mass stars spend longer on the Hayashi track, contracting slowly before nuclear ignition.",
+    ],
+    // HR track: descend Hayashi (vertical, roughly constant Teff ~3.7)
+    hrPoints: [
+      [3.68 + Zteff, logL_ZAMS + 1.4 + ZlogL],
+      [3.70 + Zteff, logL_ZAMS + 0.9 + ZlogL],
+      [3.72 + Zteff, logL_ZAMS + 0.5 + ZlogL],
+      [3.76 + Zteff, logL_ZAMS + 0.1 + ZlogL],
+    ],
+    corePoints: [
+      [6.3, -1.5],
+      [6.7, -0.5],
+      [6.9, 0.5],
+      [logTc_MS - 0.1, logRho_MS - 0.3],
+    ],
+  });
+
+  // 2. Zero-Age Main Sequence
+  stages.push({
+    name: "Main Sequence",
+    duration: msLifeGyr,
+    ageLabel: () => `t ~ ${ageStr(msLifeGyr)}`,
+    desc: [
+      "Hydrogen burning in the core halts contraction — the star has reached thermal equilibrium.",
+      m >= 1.5
+        ? `For a ${m.toFixed(1)} M☉ star, the CNO cycle dominates (ε ∝ T¹⁶), creating a convective core surrounded by a radiative envelope.`
+        : `For a ${m.toFixed(1)} M☉ star, the pp chain dominates. Energy transport is mainly radiative in the core.`,
+      "The star slowly brightens as hydrogen is consumed and the mean molecular weight increases.",
+    ],
+    hrPoints: [
+      [logTeff_ZAMS + Zteff, logL_ZAMS + ZlogL],
+      [logTeff_ZAMS + Zteff - 0.01, logL_ZAMS + 0.15 + ZlogL],
+      [logTeff_ZAMS + Zteff - 0.03, logL_ZAMS + 0.3 + ZlogL],
+      [logTeff_ZAMS + Zteff - 0.05, logL_ZAMS + 0.45 + ZlogL],
+    ],
+    corePoints: [
+      [logTc_MS, logRho_MS],
+      [logTc_MS + 0.05, logRho_MS + 0.1],
+      [logTc_MS + 0.08, logRho_MS + 0.18],
+      [logTc_MS + 0.1, logRho_MS + 0.25],
+    ],
+  });
+
+  // 3. Subgiant Branch
+  stages.push({
+    name: "Subgiant Branch",
+    duration: msLifeGyr * 0.05,
+    desc: [
+      "Core hydrogen is exhausted. Nuclear burning shifts to a shell around an inert, contracting helium core.",
+      "The 'mirror principle': as the core contracts and heats, the envelope expands and cools.",
+      "The star moves to the right across the HR diagram, luminosity rising slowly.",
+    ],
+    hrPoints: [
+      [logTeff_ZAMS + Zteff - 0.07, logL_ZAMS + 0.5 + ZlogL],
+      [logTeff_ZAMS + Zteff - 0.12, logL_ZAMS + 0.65 + ZlogL],
+      [logTeff_ZAMS + Zteff - 0.18, logL_ZAMS + 0.8 + ZlogL],
+      [3.78 + Zteff, logL_ZAMS + 1.0 + ZlogL],
+    ],
+    corePoints: [
+      [logTc_MS + 0.12, logRho_MS + 0.4],
+      [logTc_MS + 0.13, logRho_MS + 0.6],
+      [logTc_MS + 0.13, logRho_MS + 0.8],
+      [logTc_MS + 0.12, logRho_MS + 1.1],
+    ],
+  });
+
+  // 4. Red Giant Branch
+  const logL_RGBtip = m < 2.5 ? logL_ZAMS + 2.2 : logL_ZAMS + 1.8;
+  stages.push({
+    name: "Red Giant Branch",
+    duration: msLifeGyr * 0.08,
+    desc: [
+      "The star ascends the RGB nearly vertically at roughly constant T_eff ≈ 3,700 K.",
+      "The convective envelope deepens (first dredge-up), mixing processed material to the surface.",
+      "The helium core grows denser and hotter, approaching the conditions for helium ignition.",
+    ],
+    hrPoints: [
+      [3.73 + Zteff, logL_ZAMS + 1.2 + ZlogL],
+      [3.71 + Zteff, logL_ZAMS + 1.7 + ZlogL],
+      [3.70 + Zteff, logL_RGBtip - 0.3 + ZlogL],
+      [3.69 + Zteff, logL_RGBtip + ZlogL],
+    ],
+    corePoints: [
+      [logTc_MS + 0.12, logRho_MS + 1.4],
+      [logTc_MS + 0.11, logRho_MS + 2.0],
+      [logTc_MS + 0.10, logRho_MS + 2.5],
+      [logTc_MS + 0.10, logRho_MS + 3.0],
+    ],
+  });
+
+  // 5a. Helium Flash (low/intermediate mass) or 5b. He ignition (high mass)
+  if (m < 2.2) {
+    stages.push({
+      name: "Helium Flash",
+      duration: 0.0001,
+      desc: [
+        "The degenerate helium core ignites explosively — the helium flash.",
+        "Because degenerate pressure is insensitive to temperature, the runaway cannot self-regulate by expansion. Nuclear energy heats the core until degeneracy is lifted.",
+        "The flash is not directly observable (energy absorbed by the envelope), but the star rapidly restructures onto the horizontal branch.",
+      ],
+      hrPoints: [
+        [3.69 + Zteff, logL_RGBtip + ZlogL],
+        [3.75 + Zteff, logL_RGBtip - 0.5 + ZlogL],
+        [3.80 + Zteff, logL_RGBtip - 1.0 + ZlogL],
+        [3.76 + Zteff, logL_ZAMS + 0.8 + ZlogL],
+      ],
+      corePoints: [
+        [logTc_MS + 0.10, logRho_MS + 3.0],
+        [logTc_MS + 0.40, logRho_MS + 3.5],
+        [logTc_MS + 0.55, logRho_MS + 3.2],
+        [logTc_MS + 0.6, logRho_MS + 2.8],
+      ],
+    });
+  }
+
+  // 6. Horizontal Branch / Core He Burning
+  const logL_HB = m < 2.2 ? logL_ZAMS + 0.85 : logL_ZAMS + 1.1;
+  stages.push({
+    name: "Horizontal Branch",
+    duration: msLifeGyr * 0.12,
+    desc: [
+      "Stable triple-alpha helium burning in the core (3He⁴ → C¹²). The star occupies the horizontal branch.",
+      "Helium burns much faster than hydrogen, so this phase is short — typically ~10% of the MS lifetime.",
+      "For higher-mass stars this corresponds to the 'blue loop' seen in the HR diagram.",
+    ],
+    hrPoints: [
+      [3.76 + Zteff + 0.05*logM, logL_HB + ZlogL],
+      [3.80 + Zteff + 0.05*logM, logL_HB + 0.1 + ZlogL],
+      [3.82 + Zteff + 0.05*logM, logL_HB + 0.15 + ZlogL],
+      [3.78 + Zteff + 0.03*logM, logL_HB + 0.2 + ZlogL],
+    ],
+    corePoints: [
+      [logTc_MS + 0.6, logRho_MS + 2.8],
+      [logTc_MS + 0.65, logRho_MS + 2.6],
+      [logTc_MS + 0.7, logRho_MS + 2.4],
+      [logTc_MS + 0.75, logRho_MS + 2.2],
+    ],
+  });
+
+  // 7. Asymptotic Giant Branch
+  const logL_AGB = logL_ZAMS + (m < 8 ? 2.5 : 3.5);
+  stages.push({
+    name: "Asymptotic Giant Branch",
+    duration: msLifeGyr * 0.02,
+    desc: [
+      "Core helium exhausted. The star now has an inert C–O core with a helium-burning shell and a hydrogen-burning shell above it.",
+      "The star re-ascends the giant branch, reaching its highest luminosities.",
+      "Thermal pulses from the two interacting shells drive convective mixing (third dredge-up), enriching the surface with carbon and heavy elements.",
+    ],
+    hrPoints: [
+      [3.72 + Zteff, logL_HB + 0.5 + ZlogL],
+      [3.70 + Zteff, logL_HB + 1.2 + ZlogL],
+      [3.68 + Zteff, logL_AGB - 0.3 + ZlogL],
+      [3.67 + Zteff, logL_AGB + ZlogL],
+    ],
+    corePoints: [
+      [logTc_MS + 0.75, logRho_MS + 2.5],
+      [logTc_MS + 0.72, logRho_MS + 3.5],
+      [logTc_MS + 0.70, logRho_MS + 4.2],
+      [logTc_MS + 0.68, logRho_MS + 5.0],
+    ],
+  });
+
+  // 8. Final stage
+  if (isWD) {
+    stages.push({
+      name: "White Dwarf",
+      duration: 5.0,
+      desc: [
+        "Intense stellar winds strip the envelope, exposing the hot C–O core as a planetary nebula.",
+        "The remnant core — a white dwarf — has no nuclear burning. It is supported by electron degeneracy pressure alone.",
+        `Final mass ~ ${(m * 0.07 + 0.45).toFixed(2)} M☉. The WD slowly cools over billions of years, moving down the cooling track.`,
+      ],
+      hrPoints: [
+        [4.3 + Zteff, logL_AGB - 1.0 + ZlogL],
+        [4.6 + Zteff, logL_AGB - 2.5 + ZlogL],
+        [4.65 + Zteff, logL_AGB - 4.0 + ZlogL],
+        [4.6 + Zteff, logL_AGB - 5.0 + ZlogL],
+      ],
+      corePoints: [
+        [logTc_MS + 0.65, logRho_MS + 5.5],
+        [logTc_MS + 0.55, logRho_MS + 5.8],
+        [logTc_MS + 0.40, logRho_MS + 6.0],
+        [logTc_MS + 0.20, logRho_MS + 6.2],
+      ],
+    });
+  } else {
+    stages.push({
+      name: "Core Collapse / Supernova",
+      duration: 0.001,
+      desc: [
+        `At ${m.toFixed(1)} M☉, this star continues nuclear burning (C, Ne, O, Si) on increasingly short timescales.`,
+        "When an iron core forms (~1.4 M☉), no further energy can be gained from fusion. Gravity wins.",
+        "The core collapses in milliseconds, releasing ~10⁴⁴ J — a supernova. The remnant is a neutron star or black hole.",
+      ],
+      hrPoints: [
+        [3.65 + Zteff, logL_AGB + 0.5 + ZlogL],
+        [3.90 + Zteff, logL_AGB + 1.2 + ZlogL],
+        [4.80 + Zteff, logL_AGB + 0.0 + ZlogL],
+        [4.90 + Zteff, logL_AGB - 2.0 + ZlogL],
+      ],
+      corePoints: [
+        [logTc_MS + 0.60, logRho_MS + 5.0],
+        [logTc_MS + 1.0, logRho_MS + 6.5],
+        [logTc_MS + 1.5, logRho_MS + 8.0],
+        [logTc_MS + 2.0, logRho_MS + 11.0],
+      ],
+    });
+  }
+
+  return stages;
+}
+
+// ─── INTERPOLATION ─────────────────────────────────────────────────────────────
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpPt(p1, p2, t) { return [lerp(p1[0], p2[0], t), lerp(p1[1], p2[1], t)]; }
+
+function getPointOnStage(stage, t) {
+  // t in [0,1], interpolate along hrPoints and corePoints
+  const pts_hr = stage.hrPoints;
+  const pts_core = stage.corePoints;
+  const n = pts_hr.length - 1;
+  const seg = Math.min(Math.floor(t * n), n - 1);
+  const segT = t * n - seg;
+  return {
+    hr: lerpPt(pts_hr[seg], pts_hr[seg + 1], segT),
+    core: lerpPt(pts_core[seg], pts_core[seg + 1], segT),
+  };
+}
+
+// ─── CANVAS SETUP ──────────────────────────────────────────────────────────────
+const hrCanvas = document.getElementById('hrCanvas');
+const coreCanvas = document.getElementById('coreCanvas');
+const hrCtx = hrCanvas.getContext('2d');
+const coreCtx = coreCanvas.getContext('2d');
+
+function resizeCanvases() {
+  [hrCanvas, coreCanvas].forEach(c => {
+    const rect = c.parentElement.getBoundingClientRect();
+    const h = rect.height - 32; // subtract title
+    c.width = rect.width * devicePixelRatio;
+    c.height = h * devicePixelRatio;
+    c.style.width = rect.width + 'px';
+    c.style.height = h + 'px';
+  });
+}
+
+window.addEventListener('resize', () => { resizeCanvases(); drawAll(); });
+
+// ─── DIAGRAM DRAWING ───────────────────────────────────────────────────────────
+const HR_XRANGE = [3.55, 4.9];   // log Teff (reversed)
+const HR_YRANGE = [-2, 5];       // log L/Lsun
+const CORE_XRANGE = [6.0, 10.0]; // log Tc
+const CORE_YRANGE = [-2, 12];    // log rho_c
+
+function toCanvasCoords(canvas, x, y, xrange, yrange, pad, xreverse) {
+  const p = pad || { l: 52, r: 16, t: 16, b: 48 };
+  const dpr = devicePixelRatio;
+  const W = canvas.width / dpr;
+  const H = canvas.height / dpr;
+  const xfrac = xreverse
+    ? 1 - (x - xrange[0]) / (xrange[1] - xrange[0])
+    : (x - xrange[0]) / (xrange[1] - xrange[0]);
+  const cx = p.l + xfrac * (W - p.l - p.r);
+  const cy = p.t + (1 - (y - yrange[0]) / (yrange[1] - yrange[0])) * (H - p.t - p.b);
+  return [cx * dpr, cy * dpr];
+}
+
+function drawGrid(ctx, canvas, xrange, yrange, xlabel, ylabel, xreverse, ticksX, ticksY) {
+  const dpr = devicePixelRatio;
+  ctx.save();
+  const W = canvas.width;
+  const H = canvas.height;
+  const pad = { l: 52*dpr, r: 16*dpr, t: 16*dpr, b: 48*dpr };
+
+  ctx.fillStyle = '#fafaf7';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = '#ebe8e0';
+  ctx.lineWidth = 1;
+  ticksX.forEach(tx => {
+    const [cx] = toCanvasCoords(canvas, tx, yrange[0], xrange, yrange, null, xreverse);
+    ctx.beginPath(); ctx.moveTo(cx, pad.t); ctx.lineTo(cx, H - pad.b);
+    ctx.stroke();
+  });
+  ticksY.forEach(ty => {
+    const [, cy] = toCanvasCoords(canvas, xrange[0], ty, xrange, yrange, null, xreverse);
+    ctx.beginPath(); ctx.moveTo(pad.l, cy); ctx.lineTo(W - pad.r, cy);
+    ctx.stroke();
+  });
+
+  // Axes
+  ctx.strokeStyle = '#1a1916';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, H - pad.b);
+  ctx.lineTo(W - pad.r, H - pad.b);
+  ctx.stroke();
+
+  // Tick labels
+  ctx.fillStyle = '#6b6860';
+  ctx.font = `${10*dpr}px "JetBrains Mono", monospace`;
+  ctx.textAlign = 'center';
+  ticksX.forEach(tx => {
+    const [cx] = toCanvasCoords(canvas, tx, yrange[0], xrange, yrange, null, xreverse);
+    ctx.fillText(tx.toFixed(1), cx, H - pad.b + 16*dpr);
+  });
+  ctx.textAlign = 'right';
+  ticksY.forEach(ty => {
+    const [, cy] = toCanvasCoords(canvas, xrange[0], ty, xrange, yrange, null, xreverse);
+    ctx.fillText(ty.toFixed(0), pad.l - 6*dpr, cy + 4*dpr);
+  });
+
+  // Axis labels
+  ctx.fillStyle = '#1a1916';
+  ctx.font = `${11*dpr}px "EB Garamond", Georgia, serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(xlabel, pad.l + (W - pad.l - pad.r)/2, H - 6*dpr);
+
+  ctx.save();
+  ctx.translate(14*dpr, pad.t + (H - pad.t - pad.b)/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText(ylabel, 0, 0);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+function drawHRBackground(ctx, canvas) {
+  // Draw faint main sequence band
+  const dpr = devicePixelRatio;
+  const msPts = [
+    [3.56, -1.5], [3.62, -0.8], [3.70, 0.0], [3.76, 0.6],
+    [3.83, 1.2], [3.92, 2.2], [4.05, 3.5], [4.15, 4.5],
+  ];
+  ctx.save();
+  ctx.strokeStyle = 'rgba(36,113,163,0.13)';
+  ctx.lineWidth = 18*dpr;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  msPts.forEach(([x,y], i) => {
+    const [cx, cy] = toCanvasCoords(canvas, x, y, HR_XRANGE, HR_YRANGE, null, true);
+    i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+  });
+  ctx.stroke();
+  ctx.restore();
+
+  // Instability strip label
+  ctx.save();
+  ctx.font = `italic ${9*dpr}px "EB Garamond"`;
+  ctx.fillStyle = 'rgba(106,106,100,0.5)';
+  const [lx, ly] = toCanvasCoords(canvas, 3.86, 2.8, HR_XRANGE, HR_YRANGE, null, true);
+  ctx.fillText('Main Sequence', lx, ly);
+  ctx.restore();
+}
+
+function drawCoreBackground(ctx, canvas) {
+  const dpr = devicePixelRatio;
+  // EOS boundaries
+  // Ideal gas / radiation: log rho = 3 log T - 23.4
+  // Ideal gas / NR degeneracy: log rho = 1.5 log T - 8.3
+  // NR/UR: log rho = 6
+
+  function drawBoundary(pts, color, label) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.2*dpr;
+    ctx.setLineDash([6*dpr, 4*dpr]);
+    ctx.beginPath();
+    pts.forEach(([x,y], i) => {
+      const [cx, cy] = toCanvasCoords(canvas, x, y, CORE_XRANGE, CORE_YRANGE);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // Gas=Radiation boundary
+  const radPts = [];
+  for (let lt = 6.0; lt <= 10; lt += 0.5) {
+    radPts.push([lt, 3*lt - 23.4]);
+  }
+  drawBoundary(radPts.filter(p => p[1] >= CORE_YRANGE[0] && p[1] <= CORE_YRANGE[1]), '#c0392b', 'Gas = Rad');
+
+  // Gas=NR degeneracy
+  const degPts = [];
+  for (let lt = 6.0; lt <= 10; lt += 0.5) {
+    degPts.push([lt, 1.5*lt - 8.3]);
+  }
+  drawBoundary(degPts.filter(p => p[1] >= CORE_YRANGE[0] && p[1] <= CORE_YRANGE[1]), '#1e8449', 'Gas = NR deg');
+
+  // NR=UR degeneracy (horizontal)
+  const urPts = [[CORE_XRANGE[0], 6.0], [CORE_XRANGE[1], 6.0]];
+  drawBoundary(urPts, '#8e44ad', 'NR = UR deg');
+
+  // Region labels
+  const dpr2 = dpr;
+  ctx.font = `italic ${9*dpr2}px "EB Garamond"`;
+  ctx.fillStyle = 'rgba(100,100,100,0.6)';
+  const [ix, iy] = toCanvasCoords(canvas, 6.8, 1.0, CORE_XRANGE, CORE_YRANGE);
+  ctx.fillText('Ideal Gas', ix, iy);
+  const [dx, dy] = toCanvasCoords(canvas, 7.0, 8.0, CORE_XRANGE, CORE_YRANGE);
+  ctx.fillText('NR Degenerate', dx, dy);
+  const [rx, ry] = toCanvasCoords(canvas, 9.0, 4.0, CORE_XRANGE, CORE_YRANGE);
+  ctx.fillText('Radiation dom.', rx, ry);
+
+  // Solar core marker
+  const [sx, sy] = toCanvasCoords(canvas, Math.log10(1.57e7), Math.log10(150), CORE_XRANGE, CORE_YRANGE);
+  ctx.save();
+  ctx.fillStyle = '#f39c12';
+  ctx.strokeStyle = '#1a1916';
+  ctx.lineWidth = 1*dpr;
+  // Draw star shape
+  const sr = 6*dpr;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const angle = (i * Math.PI / 5) - Math.PI/2;
+    const r = i % 2 === 0 ? sr : sr*0.45;
+    const px = sx + r * Math.cos(angle);
+    const py = sy + r * Math.sin(angle);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  ctx.font = `${9*dpr}px "JetBrains Mono"`;
+  ctx.fillStyle = '#6b6860';
+  ctx.fillText('☉', sx + 8*dpr, sy - 4*dpr);
+  ctx.restore();
+}
+
+// ─── SIMULATION STATE ──────────────────────────────────────────────────────────
+let stages = [];
+let stageIdx = 0;
+let stageT = 0;
+let playing = false;
+let animFrame = null;
+let lastTime = null;
+let trackHR = [];
+let trackCore = [];
+let currentHR = null;
+let currentCore = null;
+
+function buildTimeline() {
+  const mass = parseFloat(document.getElementById('massSlider').value);
+  const Z = parseFloat(document.getElementById('metSlider').value);
+  stages = buildStages(mass, Z);
+  stageIdx = 0;
+  stageT = 0;
+  trackHR = [];
+  trackCore = [];
+  currentHR = null;
+  currentCore = null;
+
+  // Build timeline UI
+  const tl = document.getElementById('timelineStages');
+  tl.innerHTML = '';
+  stages.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = 'tl-stage';
+    el.dataset.idx = i;
+    el.innerHTML = `<div class="tl-dot"></div><span class="tl-name">${s.name}</span>`;
+    el.addEventListener('click', () => jumpToStage(i));
+    tl.appendChild(el);
+  });
+
+  updateSidePanel();
+  drawAll();
+}
+
+function jumpToStage(i) {
+  stageIdx = i;
+  stageT = 0;
+  // Rebuild track up to this stage
+  trackHR = [];
+  trackCore = [];
+  for (let s = 0; s < i; s++) {
+    stages[s].hrPoints.forEach(p => trackHR.push(p));
+    stages[s].corePoints.forEach(p => trackCore.push(p));
+  }
+  updateSidePanel();
+  drawAll();
+}
+
+function updateSidePanel() {
+  if (!stages.length) return;
+  const stage = stages[stageIdx];
+  document.getElementById('stageName').textContent = stage.name;
+
+  // Age calculation
+  let totalGyr = 0;
+  for (let i = 0; i < stageIdx; i++) totalGyr += stages[i].duration;
+  totalGyr += stageT * stage.duration;
+  const ageStr = totalGyr < 0.001
+    ? `${(totalGyr*1e6).toFixed(0)} kyr`
+    : totalGyr < 1
+    ? `${(totalGyr*1e3).toFixed(1)} Myr`
+    : `${totalGyr.toFixed(3)} Gyr`;
+  document.getElementById('stageAge').textContent = `t = ${ageStr}`;
+
+  // Progress bar
+  document.getElementById('stageBar').style.width = (stageT * 100) + '%';
+
+  // Description
+  const desc = document.getElementById('stageDesc');
+  desc.innerHTML = stage.desc.map(d => `<p>${d}</p>`).join('');
+
+  // Physics values
+  if (currentHR && currentCore) {
+    document.getElementById('pTeff').textContent = currentHR[0].toFixed(3);
+    document.getElementById('pL').textContent = currentHR[1].toFixed(2);
+    document.getElementById('pTc').textContent = currentCore[0].toFixed(3);
+    document.getElementById('pRho').textContent = currentCore[1].toFixed(2);
+  } else {
+    ['pTc','pRho','pL','pTeff'].forEach(id => document.getElementById(id).textContent = '—');
+  }
+
+  // Timeline dots
+  document.querySelectorAll('.tl-stage').forEach((el, i) => {
+    el.classList.remove('active', 'done');
+    if (i === stageIdx) el.classList.add('active');
+    else if (i < stageIdx) el.classList.add('done');
+  });
+}
+
+// ─── DRAWING ───────────────────────────────────────────────────────────────────
+function drawAll() {
+  drawHR();
+  drawCore();
+}
+
+function drawHR() {
+  const ctx = hrCtx;
+  const canvas = hrCanvas;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawGrid(ctx, canvas,
+    HR_XRANGE, HR_YRANGE,
+    'log T_eff (K) →  cooler', 'log L / L☉',
+    true,
+    [3.6, 3.7, 3.8, 3.9, 4.0, 4.1, 4.3, 4.5, 4.7, 4.9],
+    [-2, -1, 0, 1, 2, 3, 4, 5]
+  );
+
+  drawHRBackground(ctx, canvas);
+
+  // Draw completed track
+  if (trackHR.length > 1) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(36,113,163,0.35)';
+    ctx.lineWidth = 1.5 * devicePixelRatio;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    trackHR.forEach((pt, i) => {
+      const [cx, cy] = toCanvasCoords(canvas, pt[0], pt[1], HR_XRANGE, HR_YRANGE, null, true);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Draw current stage partial track
+  if (stageIdx < stages.length && stageT > 0) {
+    const stage = stages[stageIdx];
+    const steps = 30;
+    ctx.save();
+    ctx.strokeStyle = '#2471a3';
+    ctx.lineWidth = 2 * devicePixelRatio;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    let started = false;
+    // Start from last track point
+    if (trackHR.length > 0) {
+      const [cx, cy] = toCanvasCoords(canvas, trackHR[trackHR.length-1][0], trackHR[trackHR.length-1][1], HR_XRANGE, HR_YRANGE, null, true);
+      ctx.moveTo(cx, cy);
+      started = true;
+    }
+    for (let i = 0; i <= steps; i++) {
+      const t = (i / steps) * stageT;
+      const pt = getPointOnStage(stage, t);
+      const [cx, cy] = toCanvasCoords(canvas, pt.hr[0], pt.hr[1], HR_XRANGE, HR_YRANGE, null, true);
+      if (!started) { ctx.moveTo(cx, cy); started = true; }
+      else ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Draw current star position
+  if (currentHR) {
+    const [cx, cy] = toCanvasCoords(canvas, currentHR[0], currentHR[1], HR_XRANGE, HR_YRANGE, null, true);
+    const dpr = devicePixelRatio;
+
+    // Glow
+    const grad = hrCtx.createRadialGradient(cx, cy, 0, cx, cy, 18*dpr);
+    const starColor = getStarColor(currentHR[0]);
+    grad.addColorStop(0, starColor + 'cc');
+    grad.addColorStop(1, starColor + '00');
+    ctx.beginPath();
+    ctx.arc(cx, cy, 18*dpr, 0, Math.PI*2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Star dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5*dpr, 0, Math.PI*2);
+    ctx.fillStyle = starColor;
+    ctx.strokeStyle = '#1a1916';
+    ctx.lineWidth = 1*dpr;
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+function getStarColor(logTeff) {
+  // Map logTeff to a rough color
+  if (logTeff > 4.5) return '#a8c0ff'; // hot blue
+  if (logTeff > 4.2) return '#cce0ff'; // blue-white
+  if (logTeff > 4.0) return '#ffffff'; // white
+  if (logTeff > 3.9) return '#fff4e0'; // yellow-white
+  if (logTeff > 3.8) return '#ffe08a'; // yellow
+  if (logTeff > 3.75) return '#ffb347'; // orange
+  return '#ff6b35'; // red
+}
+
+function drawCore() {
+  const ctx = coreCtx;
+  const canvas = coreCanvas;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawGrid(ctx, canvas,
+    CORE_XRANGE, CORE_YRANGE,
+    'log T_c (K)', 'log ρ_c (g cm⁻³)',
+    false,
+    [6, 7, 8, 9, 10],
+    [-2, 0, 2, 4, 6, 8, 10, 12]
+  );
+
+  drawCoreBackground(ctx, canvas);
+
+  // Draw completed track
+  if (trackCore.length > 1) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(36,113,163,0.35)';
+    ctx.lineWidth = 1.5 * devicePixelRatio;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    trackCore.forEach((pt, i) => {
+      const [cx, cy] = toCanvasCoords(canvas, pt[0], pt[1], CORE_XRANGE, CORE_YRANGE);
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    });
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Current stage partial
+  if (stageIdx < stages.length && stageT > 0) {
+    const stage = stages[stageIdx];
+    const steps = 30;
+    ctx.save();
+    ctx.strokeStyle = '#2471a3';
+    ctx.lineWidth = 2 * devicePixelRatio;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    let started = false;
+    if (trackCore.length > 0) {
+      const [cx, cy] = toCanvasCoords(canvas, trackCore[trackCore.length-1][0], trackCore[trackCore.length-1][1], CORE_XRANGE, CORE_YRANGE);
+      ctx.moveTo(cx, cy);
+      started = true;
+    }
+    for (let i = 0; i <= steps; i++) {
+      const t = (i / steps) * stageT;
+      const pt = getPointOnStage(stage, t);
+      const [cx, cy] = toCanvasCoords(canvas, pt.core[0], pt.core[1], CORE_XRANGE, CORE_YRANGE);
+      if (!started) { ctx.moveTo(cx, cy); started = true; }
+      else ctx.lineTo(cx, cy);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Current star core position
+  if (currentCore) {
+    const [cx, cy] = toCanvasCoords(canvas, currentCore[0], currentCore[1], CORE_XRANGE, CORE_YRANGE);
+    const dpr = devicePixelRatio;
+
+    const grad = coreCtx.createRadialGradient(cx, cy, 0, cx, cy, 14*dpr);
+    grad.addColorStop(0, '#f39c12cc');
+    grad.addColorStop(1, '#f39c1200');
+    ctx.beginPath();
+    ctx.arc(cx, cy, 14*dpr, 0, Math.PI*2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5*dpr, 0, Math.PI*2);
+    ctx.fillStyle = '#f39c12';
+    ctx.strokeStyle = '#1a1916';
+    ctx.lineWidth = 1*dpr;
+    ctx.fill();
+    ctx.stroke();
+  }
+}
+
+// ─── ANIMATION LOOP ────────────────────────────────────────────────────────────
+const STAGE_DURATION_SECS = 3.0; // seconds real time per stage (base)
+
+function tick(ts) {
+  if (!playing) return;
+  if (!lastTime) { lastTime = ts; }
+  const dt = (ts - lastTime) / 1000;
+  lastTime = ts;
+
+  const speed = parseFloat(document.getElementById('speedSlider').value);
+  const advance = dt * speed / STAGE_DURATION_SECS;
+
+  stageT += advance;
+
+  if (stageT >= 1.0) {
+    // Record end of stage
+    const stage = stages[stageIdx];
+    stage.hrPoints.forEach(p => trackHR.push(p));
+    stage.corePoints.forEach(p => trackCore.push(p));
+
+    stageIdx++;
+    stageT = 0;
+
+    if (stageIdx >= stages.length) {
+      playing = false;
+      stageIdx = stages.length - 1;
+      stageT = 1.0;
+      document.getElementById('btnPlay').disabled = false;
+      document.getElementById('btnPause').disabled = true;
+      updateSidePanel();
+      drawAll();
+      return;
+    }
+  }
+
+  // Get current position
+  const stage = stages[stageIdx];
+  const pt = getPointOnStage(stage, stageT);
+  currentHR = pt.hr;
+  currentCore = pt.core;
+
+  updateSidePanel();
+  drawAll();
+
+  animFrame = requestAnimationFrame(tick);
+}
+
+// ─── CONTROLS ──────────────────────────────────────────────────────────────────
+document.getElementById('btnPlay').addEventListener('click', () => {
+  if (stageIdx >= stages.length - 1 && stageT >= 1.0) {
+    // restart
+    buildTimeline();
+  }
+  playing = true;
+  lastTime = null;
+  document.getElementById('btnPlay').disabled = true;
+  document.getElementById('btnPause').disabled = false;
+  animFrame = requestAnimationFrame(tick);
+});
+
+document.getElementById('btnPause').addEventListener('click', () => {
+  playing = false;
+  cancelAnimationFrame(animFrame);
+  document.getElementById('btnPlay').disabled = false;
+  document.getElementById('btnPause').disabled = true;
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  playing = false;
+  cancelAnimationFrame(animFrame);
+  lastTime = null;
+  document.getElementById('btnPlay').disabled = false;
+  document.getElementById('btnPause').disabled = true;
+  buildTimeline();
+});
+
+document.getElementById('massSlider').addEventListener('input', function() {
+  document.getElementById('massVal').textContent = parseFloat(this.value).toFixed(1);
+  if (!playing) buildTimeline();
+});
+
+document.getElementById('metSlider').addEventListener('input', function() {
+  document.getElementById('metVal').textContent = parseFloat(this.value).toFixed(3);
+  if (!playing) buildTimeline();
+});
+
+document.getElementById('speedSlider').addEventListener('input', function() {
+  document.getElementById('speedVal').textContent = this.value + '×';
+});
+
+// ─── INIT ──────────────────────────────────────────────────────────────────────
+document.getElementById('btnPause').disabled = true;
+
+setTimeout(() => {
+  resizeCanvases();
+  buildTimeline();
+}, 50);
+</script>
+</body>
+</html>
