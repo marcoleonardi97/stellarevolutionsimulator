@@ -1,6 +1,6 @@
 # Stellar Evolution Simulator
 
-Interactive web-based simulator for exploring the lifecycle of stars. Designed for educational use, it provides a simplified but physically motivated view of stellar evolution across different masses and metallicities.
+Interactive web-based simulator for exploring the lifecycle of stars. Designed for educational use, it provides a simplified but physically motivated view of stellar evolution across different masses and metallicities. Try it [here](https://marcoleonardi97.github.io/stellarevolutionsimulator/)
 
 ## Overview
 
